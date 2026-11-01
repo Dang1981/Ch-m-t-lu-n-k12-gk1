@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Chấm Tự Luận HTML Tin Học 12 - THPT Bình Tân</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Tesseract.js CDN cho nhận diện chữ từ ảnh bài làm -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Ẩn thanh cuộn mặc định nhưng vẫn cho cuộn mượt */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    .scan-laser {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #22c55e, transparent);
+      box-shadow: 0 0 10px #22c55e;
+      animation: scanAnim 2.2s infinite ease-in-out;
+    }
+    @keyframes scanAnim {
+      0% { top: 5%; }
+      50% { top: 95%; }
+      100% { top: 5%; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen pb-12">
+
+  <!-- Header -->
+  <header class="bg-indigo-700 text-white shadow-md sticky top-0 z-40">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-graduation-cap text-2xl text-yellow-300"></i>
+        <div>
+          <h1 class="text-base font-bold leading-tight">Chấm Tự Luận HTML - Tin Học 12</h1>
+          <p class="text-xs text-indigo-200">Trường THPT Bình Tân | Mã đề 1201 & 1202</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-indigo-900 text-indigo-100">
+          <i class="fa-brands fa-apple mr-1"></i> iOS Ready
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 mt-4 space-y-4">
+    
+    <!-- Thanh điều khiển chọn đề & cấu hình -->
+    <section class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Mã Đề Thi</label>
+        <select id="examCode" class="w-full bg-slate-50 border border-slate-300 text-sm font-bold text-indigo-700 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none">
+          <option value="1201">Đề 1201 (Bảng Điểm Giữa Kỳ I - banner.png)</option>
+          <option value="1202">Đề 1202 (Lịch Học Buổi Sáng - school.jpg)</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Lớp Mặc Định</label>
+        <input type="text" id="targetClass" value="12A1" placeholder="VD: 12A1" class="w-full bg-slate-50 border border-slate-300 text-sm font-semibold rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none">
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Tên Học Sinh (Nhận diện / Sửa)</label>
+        <input type="text" id="studentName" placeholder="Tự quét hoặc nhập họ tên..." class="w-full bg-slate-50 border border-slate-300 text-sm font-semibold rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none">
+      </div>
+    </section>
+
+    <!-- Khu vực Camera / Nhập bài làm -->
+    <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <!-- Tabs chuyển chế độ -->
+      <div class="flex border-b border-slate-200 bg-slate-50 text-sm font-medium">
+        <button id="tabCamBtn" onclick="switchTab('cam')" class="flex-1 py-3 text-center border-b-2 border-indigo-600 text-indigo-600 font-bold bg-white">
+          <i class="fa-solid fa-camera mr-1"></i> Quét Bằng Camera Sau / Tải Ảnh
+        </button>
+        <button id="tabCodeBtn" onclick="switchTab('code')" class="flex-1 py-3 text-center text-slate-600 hover:text-indigo-600">
+          <i class="fa-solid fa-code mr-1"></i> Nhập / Dán Mã Nguồn Trực Tiếp
+        </button>
+      </div>
+
+      <!-- Tab Camera -->
+      <div id="tabCam" class="p-4 space-y-3">
+        <div class="relative w-full bg-black rounded-lg overflow-hidden flex items-center justify-center min-h-[300px] max-h-[440px]">
+          <!-- Video element chuẩn WebKit / iOS Safari -->
+          <video id="video" autoplay playsinline muted class="w-full h-full object-contain hidden"></video>
+          <img id="capturedImage" class="w-full h-full object-contain hidden" alt="Ảnh chụp bài làm">
+          
+          <div id="cameraPlaceholder" class="text-center p-6 text-slate-400">
+            <i class="fa-solid fa-camera-retro text-4xl mb-2 text-slate-500"></i>
+            <p class="text-sm">Chưa khởi động camera</p>
+            <p class="text-xs text-slate-500 mt-1">Bấm "Bật Camera Sau" bên dưới để quét trực tiếp</p>
+          </div>
+
+          <div id="scanLaser" class="scan-laser hidden"></div>
+
+          <!-- Trạng thái OCR / Quét -->
+          <div id="ocrStatus" class="absolute bottom-3 left-3 right-3 bg-slate-900/85 text-white text-xs px-3 py-2 rounded-lg backdrop-blur hidden">
+            <span id="ocrStatusText"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang đọc mã nguồn và tên học sinh...</span>
+          </div>
+        </div>
+
+        <!-- Điều khiển Camera -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <button id="btnStartCam" onclick="startCamera()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2.5 px-3 rounded-lg flex items-center justify-center shadow">
+            <i class="fa-solid fa-video mr-1.5"></i> Bật Camera Sau
+          </button>
+          
+          <button id="btnCapture" onclick="captureAndOCR()" disabled class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold py-2.5 px-3 rounded-lg flex items-center justify-center shadow">
+            <i class="fa-solid fa-bolt mr-1.5"></i> Chụp & Chấm
+          </button>
+
+          <!-- Input File hỗ trợ native camera trên iPhone -->
+          <label class="col-span-2 sm:col-span-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-sm font-semibold py-2.5 px-3 rounded-lg flex items-center justify-center cursor-pointer text-center">
+            <i class="fa-solid fa-camera-viewfinder mr-1.5"></i> Chụp bằng iOS Cam
+            <input type="file" id="nativeFileInput" accept="image/*" capture="environment" class="hidden" onchange="handleNativeImage(event)">
+          </label>
+        </div>
+      </div>
+
+      <!-- Tab Dán Mã Nguồn Trực Tiếp -->
+      <div id="tabCode" class="p-4 space-y-3 hidden">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-500 uppercase">Mã HTML bài thi của học sinh:</span>
+          <button onclick="loadSampleCode()" class="text-xs text-indigo-600 hover:underline font-medium">
+            <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Nạp Code Mẫu Đúng Theo Đề
+          </button>
+        </div>
+        <textarea id="rawHtmlInput" rows="10" placeholder="Học sinh viết: 
+<table>
+  <caption>...</caption>
+  ...
+</table>" class="w-full font-mono text-xs p-3 bg-slate-900 text-green-400 rounded-lg border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+        
+        <button onclick="gradeCurrentCode()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold py-2.5 px-4 rounded-lg shadow flex items-center justify-center">
+          <i class="fa-solid fa-clipboard-check mr-2"></i> Chấm Điểm Bài Này
+        </button>
+      </div>
+    </section>
+
+    <!-- Kết quả Chấm Điểm & Live Preview -->
+    <section id="resultSection" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
+      <div class="flex flex-wrap items-center justify-between border-b pb-3 gap-2">
+        <div>
+          <span class="text-xs font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 mr-2" id="resBadge">Đề 1201</span>
+          <span class="font-bold text-slate-800 text-base" id="resStudent">Học sinh: Nguyễn Văn A</span>
+          <span class="text-xs text-slate-500 ml-2" id="resClass">(Lớp: 12A1)</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-xs text-slate-500 font-medium">Tổng điểm:</span>
+          <span class="text-2xl font-black text-rose-600" id="resScore">0.0</span>
+          <span class="text-sm font-bold text-slate-400">/ 2.0</span>
+        </div>
+      </div>
+
+      <!-- Barem tiêu chí chi tiết -->
+      <div class="space-y-2">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Chi tiết tiêu chí chấm điểm tự động:</h3>
+        <div id="criteriaList" class="space-y-1.5 text-xs">
+          <!-- Render tiêu chí ở đây -->
+        </div>
+      </div>
+
+      <!-- Live Preview bài làm học sinh -->
+      <div>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Xem trước kết quả HTML (Live Preview):</h3>
+        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 overflow-x-auto min-h-[100px]">
+          <div id="htmlPreviewArea" class="prose max-w-none text-xs"></div>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button onclick="saveCurrentResult()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2 px-4 rounded-lg shadow">
+          <i class="fa-solid fa-floppy-disk mr-1"></i> Lưu Vào Sổ Điểm
+        </button>
+      </div>
+    </section>
+
+    <!-- Bảng Sổ Điểm Theo Lớp -->
+    <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-table-list text-indigo-600"></i>
+          <h2 class="font-bold text-slate-800 text-sm">Sổ Điểm Tự Luận</h2>
+          <span id="recordCount" class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">0 bài</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="exportToCSV()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold py-1.5 px-3 rounded-md border border-slate-300">
+            <i class="fa-solid fa-file-excel mr-1 text-emerald-600"></i> Xuất CSV (Excel)
+          </button>
+          <button onclick="clearHistory()" class="text-xs text-rose-500 hover:text-rose-700 py-1.5 px-2">
+            Xoá hết
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto max-h-64">
+        <table class="w-full text-left text-xs text-slate-600">
+          <thead class="bg-slate-50 text-slate-700 uppercase font-semibold border-b">
+            <tr>
+              <th class="py-2 px-3">Thời gian</th>
+              <th class="py-2 px-3">Lớp</th>
+              <th class="py-2 px-3">Họ và Tên</th>
+              <th class="py-2 px-3">Đề</th>
+              <th class="py-2 px-3 text-right">Điểm Câu 1</th>
+              <th class="py-2 px-3 text-right">Điểm Câu 2</th>
+              <th class="py-2 px-3 text-right font-bold text-indigo-700">Tổng Điểm</th>
+            </tr>
+          </thead>
+          <tbody id="gradeTableBody" class="divide-y divide-slate-100">
+            <tr>
+              <td colspan="7" class="text-center py-4 text-slate-400">Chưa có bài chấm nào được lưu.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Canvas ẩn để xử lý ảnh video stream -->
+  <canvas id="hiddenCanvas" class="hidden"></canvas>
+
+  <script>
+    let videoStream = null;
+    let savedRecords = JSON.parse(localStorage.getItem('thpt_binhtan_grades') || '[]');
+    let currentGradeResult = null;
+
+    window.onload = function() {
+      renderGradeTable();
+    };
+
+    function switchTab(tab) {
+      const tabCam = document.getElementById('tabCam');
+      const tabCode = document.getElementById('tabCode');
+      const tabCamBtn = document.getElementById('tabCamBtn');
+      const tabCodeBtn = document.getElementById('tabCodeBtn');
+
+      if (tab === 'cam') {
+        tabCam.classList.remove('hidden');
+        tabCode.classList.add('hidden');
+        tabCamBtn.className = "flex-1 py-3 text-center border-b-2 border-indigo-600 text-indigo-600 font-bold bg-white";
+        tabCodeBtn.className = "flex-1 py-3 text-center text-slate-600 hover:text-indigo-600";
+      } else {
+        tabCam.classList.add('hidden');
+        tabCode.classList.remove('hidden');
+        tabCodeBtn.className = "flex-1 py-3 text-center border-b-2 border-indigo-600 text-indigo-600 font-bold bg-white";
+        tabCamBtn.className = "flex-1 py-3 text-center text-slate-600 hover:text-indigo-600";
+        stopCamera();
+      }
+    }
+
+    // ==========================================
+    // KHỞI TẠO CAMERA SAU (TỐI ƯU CHO SAFARI/IOS)
+    // ==========================================
+    async function startCamera() {
+      const video = document.getElementById('video');
+      const placeholder = document.getElementById('cameraPlaceholder');
+      const capturedImg = document.getElementById('capturedImage');
+      const btnStart = document.getElementById('btnStartCam');
+      const btnCapture = document.getElementById('btnCapture');
+
+      stopCamera();
+      capturedImg.classList.add('hidden');
+
+      // Cấu hình chuẩn WebKit trên iOS
+      const constraints = {
+        audio: false,
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      };
+
+      try {
+        videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = videoStream;
+        video.setAttribute("playsinline", true); // Ngăn iPhone tự bung full screen
+        await video.play();
+
+        video.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+        btnCapture.disabled = false;
+        btnStart.innerHTML = '<i class="fa-solid fa-arrows-rotate mr-1.5"></i> Đổi Camera';
+      } catch (err) {
+        console.error("Camera Error:", err);
+        alert("Không thể mở camera sau: " + (err.message || "Vui lòng cấp quyền Camera trên trình duyệt Safari hoặc đảm bảo trang web chạy qua https://"));
+      }
+    }
+
+    function stopCamera() {
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        videoStream = null;
+      }
+    }
+
+    // Chụp từ Camera Safari và OCR
+    async function captureAndOCR() {
+      const video = document.getElementById('video');
+      const canvas = document.getElementById('hiddenCanvas');
+      const laser = document.getElementById('scanLaser');
+      const ocrStatus = document.getElementById('ocrStatus');
+      const capturedImg = document.getElementById('capturedImage');
+
+      if (!video.videoWidth) return;
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      capturedImg.src = dataUrl;
+      capturedImg.classList.remove('hidden');
+      video.classList.add('hidden');
+      stopCamera();
+
+      laser.classList.remove('hidden');
+      ocrStatus.classList.remove('hidden');
+
+      await runOCR(dataUrl);
+
+      laser.classList.add('hidden');
+      ocrStatus.classList.add('hidden');
+    }
+
+    // Xử lý khi chụp qua input native của iOS
+    function handleNativeImage(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        const dataUrl = e.target.result;
+        const capturedImg = document.getElementById('capturedImage');
+        const video = document.getElementById('video');
+        const placeholder = document.getElementById('cameraPlaceholder');
+        const laser = document.getElementById('scanLaser');
+        const ocrStatus = document.getElementById('ocrStatus');
+
+        stopCamera();
+        video.classList.add('hidden');
+        placeholder.classList.add('hidden');
+        capturedImg.src = dataUrl;
+        capturedImg.classList.remove('hidden');
+
+        laser.classList.remove('hidden');
+        ocrStatus.classList.remove('hidden');
+
+        await runOCR(dataUrl);
+
+        laser.classList.add('hidden');
+        ocrStatus.classList.add('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Nhận diện OCR qua Tesseract
+    async function runOCR(imageSource) {
+      const statusText = document.getElementById('ocrStatusText');
+      try {
+        statusText.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang tải mô hình OCR...';
+        
+        const worker = await Tesseract.createWorker('vie');
+        statusText.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang quét mã nguồn & họ tên...';
+        
+        const ret = await worker.recognize(imageSource);
+        const text = ret.data.text;
+        await worker.terminate();
+
+        // Tự động tìm họ tên học sinh và lớp nếu có
+        detectStudentMeta(text);
+
+        // Đổ mã vào textarea và chấm điểm
+        document.getElementById('rawHtmlInput').value = text;
+        evaluateExam(text);
+
+      } catch (err) {
+        console.error("OCR Error:", err);
+        alert("Lỗi khi quét ảnh OCR. Bạn có thể chuyển sang tab 'Nhập / Dán Mã Nguồn' để chấm trực tiếp.");
+      }
+    }
+
+    // Nhận diện Họ tên & Lớp học trong bài làm
+    function detectStudentMeta(rawText) {
+      const nameMatch = rawText.match(/(?:Họ\s*(?:và|&)?\s*tên|Họ\s*tên|Học\s*sinh)\s*[:\-]?\s*([^\n\r,.<>]+)/i);
+      if (nameMatch && nameMatch[1]) {
+        const cleanedName = nameMatch[1].trim().replace(/['"“”;:]/g, '');
+        if (cleanedName.length > 2 && cleanedName.length < 35) {
+          document.getElementById('studentName').value = cleanedName;
+        }
+      }
+
+      const classMatch = rawText.match(/(?:Lớp)\s*[:\-]?\s*(12[A-Za-z0-9]+)/i);
+      if (classMatch && classMatch[1]) {
+        document.getElementById('targetClass').value = classMatch[1].trim().toUpperCase();
+      }
+    }
+
+    function gradeCurrentCode() {
+      const code = document.getElementById('rawHtmlInput').value;
+      if (!code.trim()) {
+        alert("Vui lòng nhập hoặc quét mã HTML của học sinh!");
+        return;
+      }
+      evaluateExam(code);
+    }
+
+    // ==========================================
+    // BAREM VÀ THUẬT TOÁN CHẤM TỰ LUẬN TIN HỌC 12
+    // ==========================================
+    function evaluateExam(rawCode) {
+      const exam = document.getElementById('examCode').value;
+      const lower = rawCode.toLowerCase();
+      let criteria = [];
+      let totalC1 = 0;
+      let totalC2 = 0;
+
+      if (exam === '1201') {
+        // --- BAREM ĐỀ 1201 ---
+        // Câu 1 (1.0 điểm):
+        // 1. Thẻ <table> và border="1" (0.25đ)
+        const hasTable = /<table[\s\S]*?>/.test(lower) && /<\/table>/.test(lower);
+        const hasBorder = /<table[^>]*\bborder\s*=\s*["']?1["']?/i.test(rawCode);
+        const c1_1 = hasTable && hasBorder;
+        criteria.push({
+          title: "Câu 1: Thẻ <table> có thuộc tính border='1'",
+          max: 0.25,
+          score: c1_1 ? 0.25 : (hasTable ? 0.1 : 0),
+          desc: "Đúng cặp thẻ table và gán viền border='1'"
+        });
+
+        // 2. <caption> có tiêu đề đúng (0.25đ)
+        const hasCaption = /<caption[\s\S]*?>[\s\S]*?BẢNG\s*ĐIỂM\s*KIỂM\s*TRA\s*GIỮA\s*KỲ\s*I\s*-\s*LỚP\s*12A[\s\S]*?<\/caption>/i.test(rawCode);
+        const partialCap = /<caption[\s\S]*?>/i.test(lower) && /bảng\s*điểm/i.test(lower);
+        criteria.push({
+          title: "Câu 1: Tiêu đề <caption> chuẩn 'BẢNG ĐIỂM KIỂM TRA GIỮA KỲ I - LỚP 12A'",
+          max: 0.25,
+          score: hasCaption ? 0.25 : (partialCap ? 0.15 : 0),
+          desc: "Tiêu đề bảng nằm trong cặp thẻ <caption>"
+        });
+
+        // 3. Gộp hàng, gộp cột (rowspan="2", colspan="2") ở hàng tiêu đề <th> (0.25đ)
+        const hasRowspan = /rowspan\s*=\s*["']?2["']?/i.test(rawCode) && /họ\s*và\s*tên/i.test(rawCode);
+        const hasColspan = /colspan\s*=\s*["']?2["']?/i.test(rawCode) && /điểm\s*kiểm\s*tra/i.test(rawCode);
+        let c1_3_score = 0;
+        if (hasRowspan && hasColspan) c1_3_score = 0.25;
+        else if (hasRowspan || hasColspan) c1_3_score = 0.15;
+        criteria.push({
+          title: "Câu 1: Hàng 1 gộp 2 hàng (rowspan='2'), gộp 2 cột (colspan='2')",
+          max: 0.25,
+          score: c1_3_score,
+          desc: "Ô 'Họ và tên' gộp hàng, 'Điểm kiểm tra' gộp cột"
+        });
+
+        // 4. Hàng 2 (Tin học, Toán học) và Hàng 3 dữ liệu học sinh (0.25đ)
+        const hasSubjects = /tin\s*học/i.test(rawCode) && /toán\s*học/i.test(rawCode);
+        const hasStudentRow = /nguyễn\s*văn\s*a/i.test(rawCode) && /10/.test(rawCode) && /9\.5/.test(rawCode);
+        let c1_4_score = 0;
+        if (hasSubjects && hasStudentRow) c1_4_score = 0.25;
+        else if (hasSubjects || hasStudentRow) c1_4_score = 0.15;
+        criteria.push({
+          title: "Câu 1: Dữ liệu môn học con và thông tin học sinh (Nguyễn Văn A, 10, 9.5)",
+          max: 0.25,
+          score: c1_4_score,
+          desc: "Nhập đúng cấu trúc hàng dữ liệu <td>"
+        });
+
+        // Câu 2 (1.0 điểm):
+        // 2a. Hình ảnh banner.png có alt="Banner nhà trường" và lồng link đến web trường (0.5đ)
+        const hasImgBanner = /<img[^>]*src\s*=\s*["']?images\/banner\.png["']?/i.test(rawCode);
+        const hasAltBanner = /alt\s*=\s*["']?Banner\s*nhà\s*trường["']?/i.test(rawCode);
+        const hasWebLink = /<a[^>]*href\s*=\s*["']?https?:\/\/thptbinhtan\.hcm\.edu\.vn[\/]?["']?/i.test(rawCode);
+        let c2_a_score = 0;
+        if (hasImgBanner && hasWebLink && hasAltBanner) c2_a_score = 0.5;
+        else if (hasImgBanner && (hasWebLink || hasAltBanner)) c2_a_score = 0.35;
+        else if (hasImgBanner || hasWebLink) c2_a_score = 0.2;
+        criteria.push({
+          title: "Câu 2a: Tại index.html: Chèn images/banner.png có alt, bọc thẻ <a> trỏ về web trường",
+          max: 0.5,
+          score: c2_a_score,
+          desc: "Liên kết hình ảnh tương đối đến website https://thptbinhtan.hcm.edu.vn"
+        });
+
+        // 2b. Tại hoatdong.html liên kết tương đối về index.html (0.5đ)
+        const hasBackLink = /<a[^>]*href\s*=\s*["']?\.\.\/index\.html["']?[^>]*>[\s\S]*?Quay\s*về\s*Trang\s*chủ[\s\S]*?<\/a>/i.test(rawCode);
+        const partialBack = /href\s*=\s*["']?(?:\.\.\/)?index\.html["']?/i.test(rawCode) && /quay\s*về\s*trang\s*chủ/i.test(rawCode);
+        criteria.push({
+          title: "Câu 2b: Tại hoatdong.html: Thẻ <a> href='../index.html' 'Quay về Trang chủ'",
+          max: 0.5,
+          score: hasBackLink ? 0.5 : (partialBack ? 0.3 : 0),
+          desc: "Liên kết tương đối trỏ về thư mục cấp cha '../index.html'"
+        });
+
+      } else {
+        // --- BAREM ĐỀ 1202 ---
+        // Câu 1:
+        // 1. Thẻ table và border="1" (0.25đ)
+        const hasTable = /<table[\s\S]*?>/.test(lower) && /<\/table>/.test(lower);
+        const hasBorder = /<table[^>]*\bborder\s*=\s*["']?1["']?/i.test(rawCode);
+        criteria.push({
+          title: "Câu 1: Thẻ <table> có thuộc tính border='1'",
+          max: 0.25,
+          score: (hasTable && hasBorder) ? 0.25 : (hasTable ? 0.1 : 0),
+          desc: "Tạo bảng đúng cú pháp và có border='1'"
+        });
+
+        // 2. <caption> 'LỊCH HỌC BUỔI SÁNG - THPT' (0.25đ)
+        const hasCaption = /<caption[\s\S]*?>[\s\S]*?LỊCH\s*HỌC\s*BUỔI\s*SÁNG\s*-\s*THPT[\s\S]*?<\/caption>/i.test(rawCode);
+        const partialCap = /<caption[\s\S]*?>/i.test(lower) && /lịch\s*học/i.test(lower);
+        criteria.push({
+          title: "Câu 1: Tiêu đề <caption> 'LỊCH HỌC BUỔI SÁNG - THPT'",
+          max: 0.25,
+          score: hasCaption ? 0.25 : (partialCap ? 0.15 : 0),
+          desc: "Thẻ caption đúng tiêu đề yêu cầu"
+        });
+
+        // 3. Hàng 1: 'Buổi' rowspan='2', 'Các tiết học' colspan='2' (0.25đ)
+        const hasRowspan = /rowspan\s*=\s*["']?2["']?/i.test(rawCode) && /buổi/i.test(rawCode);
+        const hasColspan = /colspan\s*=\s*["']?2["']?/i.test(rawCode) && /các\s*tiết\s*học/i.test(rawCode);
+        let c1_3_score = 0;
+        if (hasRowspan && hasColspan) c1_3_score = 0.25;
+        else if (hasRowspan || hasColspan) c1_3_score = 0.15;
+        criteria.push({
+          title: "Câu 1: Hàng 1 ô 'Buổi' rowspan='2', ô 'Các tiết học' colspan='2'",
+          max: 0.25,
+          score: c1_3_score,
+          desc: "Gộp 2 hàng và gộp 2 cột chuẩn"
+        });
+
+        // 4. Hàng 2 (Tiết 1, Tiết 2) và Hàng 3 (Sáng, Tin học, Toán học) (0.25đ)
+        const hasTiet = /tiết\s*1/i.test(rawCode) && /tiết\s*2/i.test(rawCode);
+        const hasData = /sáng/i.test(rawCode) && /tin\s*học/i.test(rawCode) && /toán\s*học/i.test(rawCode);
+        let c1_4_score = 0;
+        if (hasTiet && hasData) c1_4_score = 0.25;
+        else if (hasTiet || hasData) c1_4_score = 0.15;
+        criteria.push({
+          title: "Câu 1: Tiêu đề con (Tiết 1, Tiết 2) và Hàng dữ liệu (Sáng, Tin học, Toán học)",
+          max: 0.25,
+          score: c1_4_score,
+          desc: "Cấu trúc thẻ th và td chính xác"
+        });
+
+        // Câu 2:
+        // 2a. media/school.jpg, alt="Trường Bình Tân", trỏ về web trường (0.5đ)
+        const hasImgMedia = /<img[^>]*src\s*=\s*["']?media\/school\.jpg["']?/i.test(rawCode);
+        const hasAltMedia = /alt\s*=\s*["']?Trường\s*Bình\s*Tân["']?/i.test(rawCode);
+        const hasWebLink = /<a[^>]*href\s*=\s*["']?https?:\/\/thptbinhtan\.hcm\.edu\.vn[\/]?["']?/i.test(rawCode);
+        let c2_a_score = 0;
+        if (hasImgMedia && hasWebLink && hasAltMedia) c2_a_score = 0.5;
+        else if (hasImgMedia && (hasWebLink || hasAltMedia)) c2_a_score = 0.35;
+        else if (hasImgMedia || hasWebLink) c2_a_score = 0.2;
+        criteria.push({
+          title: "Câu 2a: Tại index.html: Chèn media/school.jpg có alt, bọc thẻ <a> trỏ về web trường",
+          max: 0.5,
+          score: c2_a_score,
+          desc: "Liên kết hình ảnh tương đối đến web trường"
+        });
+
+        // 2b. thethao.html -> ../index.html ('Quay lại Trang chủ') (0.5đ)
+        const hasBackLink = /<a[^>]*href\s*=\s*["']?\.\.\/index\.html["']?[^>]*>[\s\S]*?Quay\s*lại\s*Trang\s*chủ[\s\S]*?<\/a>/i.test(rawCode);
+        const partialBack = /href\s*=\s*["']?(?:\.\.\/)?index\.html["']?/i.test(rawCode) && /quay\s*lại\s*trang\s*chủ/i.test(rawCode);
+        criteria.push({
+          title: "Câu 2b: Tại thethao.html: Thẻ <a> href='../index.html' 'Quay lại Trang chủ'",
+          max: 0.5,
+          score: hasBackLink ? 0.5 : (partialBack ? 0.3 : 0),
+          desc: "Đường dẫn tương đối lên thư mục cấp trên"
+        });
+      }
+
+      // Tính tổng điểm
+      totalC1 = criteria.slice(0, 4).reduce((sum, item) => sum + item.score, 0);
+      totalC2 = criteria.slice(4).reduce((sum, item) => sum + item.score, 0);
+      const totalScore = Math.min(2.0, Math.round((totalC1 + totalC2) * 100) / 100);
+
+      // Hiển thị giao diện kết quả
+      document.getElementById('resultSection').classList.remove('hidden');
+      document.getElementById('resBadge').innerText = "Đề " + exam;
+      const sName = document.getElementById('studentName').value.trim() || "Chưa xác định họ tên";
+      const sClass = document.getElementById('targetClass').value.trim() || "12A1";
+      document.getElementById('resStudent').innerText = "Học sinh: " + sName;
+      document.getElementById('resClass').innerText = "(Lớp: " + sClass + ")";
+      document.getElementById('resScore').innerText = totalScore.toFixed(2);
+
+      // Render danh sách tiêu chí
+      const listEl = document.getElementById('criteriaList');
+      listEl.innerHTML = '';
+      criteria.forEach((item, index) => {
+        const isFull = item.score === item.max;
+        const isZero = item.score === 0;
+        const colorClass = isFull ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : (isZero ? 'text-rose-700 bg-rose-50 border-rose-200' : 'text-amber-800 bg-amber-50 border-amber-200');
+        const icon = isFull ? 'fa-check' : (isZero ? 'fa-xmark' : 'fa-exclamation');
+
+        listEl.innerHTML += `
+          <div class="p-2 rounded border flex items-center justify-between ${colorClass}">
+            <div class="flex items-start space-x-2">
+              <i class="fa-solid ${icon} mt-0.5"></i>
+              <div>
+                <p class="font-semibold">${item.title}</p>
+                <p class="text-[11px] opacity-80">${item.desc}</p>
+              </div>
+            </div>
+            <span class="font-bold whitespace-nowrap ml-2">${item.score.toFixed(2)} / ${item.max.toFixed(2)}đ</span>
+          </div>
+        `;
+      });
+
+      // Live Preview HTML bài làm
+      renderLivePreview(rawCode);
+
+      // Lưu kết quả hiện tại
+      currentGradeResult = {
+        id: Date.now(),
+        date: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        studentName: sName,
+        className: sClass,
+        examCode: exam,
+        scoreC1: totalC1.toFixed(2),
+        scoreC2: totalC2.toFixed(2),
+        totalScore: totalScore.toFixed(2)
+      };
+    }
+
+    function renderLivePreview(htmlCode) {
+      const previewArea = document.getElementById('htmlPreviewArea');
+      // Tạo preview an toàn: chuyển các link ảnh giả định sang placeholder nếu cần
+      let previewHTML = htmlCode
+        .replace(/src=["'](?:images\/banner\.png|media\/school\.jpg)["']/gi, 'src="https://placehold.co/400x120/indigo/white?text=Hinh+Anh+Minh+Hoa"')
+        .replace(/<a /gi, '<a target="_blank" class="text-blue-600 underline" ');
+      
+      previewArea.innerHTML = previewHTML;
+    }
+
+    // ==========================================
+    // LƯU TRỮ VÀ QUẢN LÝ SỔ ĐIỂM
+    // ==========================================
+    function saveCurrentResult() {
+      if (!currentGradeResult) return;
+      savedRecords.unshift(currentGradeResult);
+      localStorage.setItem('thpt_binhtan_grades', JSON.stringify(savedRecords));
+      renderGradeTable();
+      alert("Đã lưu điểm cho học sinh: " + currentGradeResult.studentName + " (" + currentGradeResult.className + ")!");
+    }
+
+    function renderGradeTable() {
+      const tbody = document.getElementById('gradeTableBody');
+      const countEl = document.getElementById('recordCount');
+      countEl.innerText = savedRecords.length + " bài";
+
+      if (savedRecords.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-slate-400">Chưa có bài chấm nào được lưu.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = savedRecords.map(r => `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="py-2 px-3 text-slate-400">${r.date}</td>
+          <td class="py-2 px-3 font-semibold text-slate-700">${r.className}</td>
+          <td class="py-2 px-3 font-bold text-slate-900">${r.studentName}</td>
+          <td class="py-2 px-3"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-700">Đề ${r.examCode}</span></td>
+          <td class="py-2 px-3 text-right font-medium text-slate-600">${r.scoreC1}</td>
+          <td class="py-2 px-3 text-right font-medium text-slate-600">${r.scoreC2}</td>
+          <td class="py-2 px-3 text-right font-black text-rose-600">${r.totalScore}</td>
+        </tr>
+      `).join('');
+    }
+
+    function clearHistory() {
+      if (confirm("Thầy/Cô có chắc chắn muốn xoá toàn bộ sổ điểm đã lưu?")) {
+        savedRecords = [];
+        localStorage.removeItem('thpt_binhtan_grades');
+        renderGradeTable();
+      }
+    }
+
+    // Xuất file CSV định dạng UTF-8 BOM để mở tiếng Việt không bị lỗi font trên Excel
+    function exportToCSV() {
+      if (savedRecords.length === 0) {
+        alert("Chưa có dữ liệu bài chấm để xuất!");
+        return;
+      }
+
+      let csvContent = "\uFEFF"; // UTF-8 BOM
+      csvContent += "Thời gian,Lớp,Họ và Tên,Mã Đề,Điểm Câu 1,Điểm Câu 2,Tổng Điểm (Thang 2.0)\n";
+
+      savedRecords.forEach(r => {
+        csvContent += `"${r.date}","${r.className}","${r.studentName}","${r.examCode}","${r.scoreC1}","${r.scoreC2}","${r.totalScore}"\n`;
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Diem_TuLuan_Tin12_${document.getElementById('targetClass').value || 'ToanTruong'}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // Nạp code mẫu kiểm tra thử barem
+    function loadSampleCode() {
+      const exam = document.getElementById('examCode').value;
+      if (exam === '1201') {
+        document.getElementById('studentName').value = "Nguyễn Văn A";
+        document.getElementById('rawHtmlInput').value = 
+`<!-- Bài làm học sinh: Nguyễn Văn A - Lớp 12A1 -->
+<!-- Câu 1: -->
+<table border="1">
+  <caption>BẢNG ĐIỂM KIỂM TRA GIỮA KỲ I - LỚP 12A</caption>
+  <tr>
+    <th rowspan="2">Họ và tên</th>
+    <th colspan="2">Điểm kiểm tra</th>
+  </tr>
+  <tr>
+    <th>Tin học</th>
+    <th>Toán học</th>
+  </tr>
+  <tr>
+    <td>Nguyễn Văn A</td>
+    <td>10</td>
+    <td>9.5</td>
+  </tr>
+</table>
+
+<!-- Câu 2a: Tại index.html -->
+<a href="https://thptbinhtan.hcm.edu.vn">
+  <img src="images/banner.png" alt="Banner nhà trường">
+</a>
+
+<!-- Câu 2b: Tại hoatdong.html -->
+<a href="../index.html">Quay về Trang chủ</a>`;
+      } else {
+        document.getElementById('studentName').value = "Trần Thị B";
+        document.getElementById('rawHtmlInput').value = 
+`<!-- Bài làm học sinh: Trần Thị B - Lớp 12A2 -->
+<!-- Câu 1: -->
+<table border="1">
+  <caption>LỊCH HỌC BUỔI SÁNG - THPT</caption>
+  <tr>
+    <th rowspan="2">Buổi</th>
+    <th colspan="2">Các tiết học</th>
+  </tr>
+  <tr>
+    <th>Tiết 1</th>
+    <th>Tiết 2</th>
+  </tr>
+  <tr>
+    <td>Sáng</td>
+    <td>Tin học</td>
+    <td>Toán học</td>
+  </tr>
+</table>
+
+<!-- Câu 2a: Tại index.html -->
+<a href="https://thptbinhtan.hcm.edu.vn">
+  <img src="media/school.jpg" alt="Trường Bình Tân">
+</a>
+
+<!-- Câu 2b: Tại thethao.html -->
+<a href="../index.html">Quay lại Trang chủ</a>`;
+      }
+      evaluateExam(document.getElementById('rawHtmlInput').value);
+    }
+  </script>
+</body>
+</html>
